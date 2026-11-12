@@ -1,18 +1,9 @@
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import Lenis from 'lenis';
 import { initEnquiry } from './enquiry.js';
-
-gsap.registerPlugin(ScrollTrigger);
 
 const root = document.documentElement;
 root.classList.add('js');
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-const isMobile = window.matchMedia('(max-width: 960px)').matches || navigator.maxTouchPoints > 1 && window.innerWidth < 1100;
-if (reducedMotion) root.classList.add('reduced-motion');
 
 // ------------------------------------------------------------------ data
 let data;
@@ -43,7 +34,6 @@ const h = (tag, attrs = {}, ...children) => {
     if (v == null || v === false) continue;
     if (k === 'class') el.className = v;
     else if (k === 'text') el.textContent = v;
-    else if (k === 'html') el.innerHTML = v; // only used with static markup below
     else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
     else el.setAttribute(k, v === true ? '' : v);
   }
@@ -59,6 +49,7 @@ const icon = (name, cls = 'ic') => {
   svg.append(use);
   return svg;
 };
+const pad = (n) => String(n).padStart(2, '0');
 
 const phoneDigits = String(C.contact.phone || '').replace(/[^\d+]/g, '');
 const links = {
@@ -75,70 +66,47 @@ $('#cc-address').href = `https://www.google.com/maps/search/?api=1&query=${encod
 $('#map').src = `https://www.google.com/maps?q=${encodeURIComponent(C.contact.mapQuery || C.contact.address)}&output=embed`;
 if (C.contact.hours) $('#contact-hours').hidden = false;
 $('#year').textContent = new Date().getFullYear();
+if (demo) $('.footer__admin').textContent = 'Admin (preview)';
 
 // ------------------------------------------------------------------ render lists
 const SERVICE_ICONS = ['fabrication', 'cleanroom', 'passbox', 'tank', 'piping', 'epoxy', 'partition', 'railing'];
 
-// hero stats
-$('#hero-stats').append(...(C.hero.stats || []).map((s) => {
-  const numeric = /^\d+$/.test(String(s.value));
-  return h('li', {},
-    h('strong', {}, h('span', { 'data-count': numeric ? s.value : null, text: numeric ? '0' : s.value }), h('em', { text: s.suffix || '' })),
-    h('span', { text: s.label }));
-}));
+$('#hero-stats').append(...(C.hero.stats || []).map((s) => h('li', {},
+  h('strong', { text: `${s.value ?? ''}${s.suffix || ''}` }), h('span', { text: s.label }))));
 
-// services marquee (two copies for a seamless loop)
-const marqueeItems = (C.services.items || []).map((s) => s.title);
-for (let copy = 0; copy < 2; copy++) marqueeItems.forEach((t) => $('#service-marquee').append(h('span', {}, t, h('i'))));
-
-$('#about-points').append(...(C.about.points || []).map((p) => h('li', {}, icon('check'), p)));
+$('#about-points').append(...(C.about.points || []).map((p) => h('li', {}, icon('check'), h('span', { text: p }))));
 $('#founder-skills').append(...(C.founder.skills || []).map((s) => h('li', { text: s })));
 
-// showcase steps
-const steps = C.showcase.steps || [];
-setRich($('[data-bind="showcase.title"]'), C.showcase.title);
-$('#showcase-steps').append(...steps.map((s, i) => h('article', { class: `step-card glass${i === 0 ? ' is-active' : ''}` },
-  h('span', { class: 'step-card__num', text: `${String(i + 1).padStart(2, '0')} / ${String(steps.length).padStart(2, '0')}` }),
-  h('h3', { text: s.title }), h('p', { text: s.text }))));
-$('#showcase-progress').append(...steps.map(() => h('span', {}, h('i'))));
+$('#showcase-steps').append(...(C.showcase?.steps || []).map((s, i) => h('li', {},
+  h('span', { class: 'quality__num', text: pad(i + 1) }), h('h3', { text: s.title }), h('p', { text: s.text }))));
 
-// services
-$('#services-grid').append(...(C.services.items || []).map((s, i) => h('article', { class: 'svc', 'data-reveal': true },
-  h('span', { class: 'svc__num', text: String(i + 1).padStart(2, '0') }),
-  h('span', { class: 'svc__icon' }, icon(SERVICE_ICONS.includes(s.icon) ? s.icon : SERVICE_ICONS[i % SERVICE_ICONS.length])),
+$('#services-grid').append(...(C.services.items || []).map((s, i) => h('article', { class: 'card' },
+  h('span', { class: 'icon-box' }, icon(SERVICE_ICONS.includes(s.icon) ? s.icon : SERVICE_ICONS[i % SERVICE_ICONS.length])),
   h('h3', { text: s.title }), h('p', { text: s.text }))));
 
-// expertise
-$('#expertise-list').append(...(C.expertise.items || []).map((it) => h('li', { class: 'exp-item', 'data-reveal': true },
-  h('span', { class: 'exp-item__bar' }), h('h3', { text: it.title }), h('p', { text: it.text }))));
+$('#expertise-list').append(...(C.expertise.items || []).map((it, i) => h('li', {},
+  h('span', { class: 'expertise__num', text: pad(i + 1) }), h('h3', { text: it.title }), h('p', { text: it.text }))));
 
-// furniture features
-const FEAT_ICONS = ['layers', 'shield', 'spark', 'eye', 'grid', 'check', 'award'];
-$('#furniture-list').append(...(C.furniture.items || []).map((it, i) => h('li', { class: 'feat', 'data-reveal': true },
-  h('span', { class: 'feat__icon' }, icon(FEAT_ICONS[i % FEAT_ICONS.length])), h('h3', { text: it.title }), h('p', { text: it.text }))));
+$('#furniture-list').append(...(C.furniture.items || []).map((it) => h('li', {},
+  icon('check'), h('div', {}, h('strong', { text: it.title }), h('span', { text: it.text })))));
 
-// process
-$('#process-steps').append(...(C.process.steps || []).map((s, i) => h('li', { class: 'pstep' },
-  h('span', { class: 'pstep__dot', text: String(i + 1).padStart(2, '0') }), h('h3', { text: s.title }), h('p', { text: s.text }))));
+$('#process-steps').append(...(C.process.steps || []).map((s, i) => h('li', {},
+  h('span', { class: 'process__num', text: pad(i + 1) }), h('h3', { text: s.title }), h('p', { text: s.text }))));
 
-// clients (two marquee rows running in opposite directions)
 const clients = data.clients || [];
-const half = Math.ceil(clients.length / 2);
-[clients.slice(0, half), clients.slice(half)].forEach((row, r) => {
-  if (!row.length) return;
-  const track = h('div', { class: `logo-row${r ? ' logo-row--rev' : ''}` });
-  for (let copy = 0; copy < 2; copy++) {
-    row.forEach((c) => {
-      const tile = h(c.website ? 'a' : 'div', { class: 'logo-tile', href: c.website || null, target: c.website ? '_blank' : null, rel: c.website ? 'noopener' : null, 'aria-hidden': copy ? 'true' : null },
-        h('img', { src: c.logo, alt: copy ? '' : c.name, loading: 'lazy' }), h('span', { class: 'logo-tile__name', text: c.name }));
-      track.append(tile);
-    });
-  }
-  $('#logo-marquee').append(track);
-});
+$('#clients-grid').append(...clients.map((c) => h(c.website ? 'a' : 'div', {
+  class: 'client', title: c.name, href: c.website || null, target: c.website ? '_blank' : null, rel: c.website ? 'noopener' : null,
+}, c.logo ? h('img', { src: c.logo, alt: c.name, loading: 'lazy' }) : h('span', { text: c.name }))));
 $('#clients-count').textContent = `${clients.length}+ companies`;
 
-// ------------------------------------------------------------------ toast
+// ------------------------------------------------------------------ helpers: scrolling, toast, overlays
+function scrollToTarget(target) {
+  const el = typeof target === 'string' ? $(target) : target;
+  if (!el) return;
+  if (el.id === 'top') window.scrollTo(0, 0);
+  else el.scrollIntoView({ block: 'start' });
+}
+
 let toastTimer;
 function toast(msg) {
   const el = $('#toast');
@@ -146,6 +114,20 @@ function toast(msg) {
   el.classList.add('is-on');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('is-on'), 2600);
+}
+
+let lastFocus = null;
+function openOverlay(el, focusEl) {
+  lastFocus = document.activeElement;
+  el.hidden = false;
+  root.classList.add('is-locked');
+  focusEl?.focus();
+}
+function closeOverlay(el) {
+  el.hidden = true;
+  root.classList.remove('is-locked');
+  lastFocus?.focus?.();
+  lastFocus = null;
 }
 
 let currentProduct = null; // product open in the quick-view modal
@@ -177,7 +159,6 @@ basket.subscribe((items) => {
   basketBtn.hidden = items.length === 0;
   basketBtn.setAttribute('aria-label', `Your enquiry list: ${items.length} product${items.length === 1 ? '' : 's'}`);
   $('#basket-count').textContent = items.length;
-  basketBtn.classList.remove('is-bump'); void basketBtn.offsetWidth; basketBtn.classList.add('is-bump');
   $$('.pcard').forEach((card) => syncAddButton(card.querySelector('.pcard__add'), basket.has(card.dataset.name)));
   if (currentProduct) syncModalButton();
 });
@@ -201,13 +182,13 @@ function productCard(p) {
     toast(added ? `“${p.name}” added to your enquiry` : `Removed “${p.name}”`);
   } });
   syncAddButton(add, basket.has(p.name));
-  return h('article', { class: 'pcard is-enter', 'data-name': p.name, 'data-tilt-soft': true },
+  return h('article', { class: 'pcard', 'data-name': p.name },
     h('button', { class: 'pcard__img', type: 'button', 'aria-label': `View ${p.name}`, onclick: () => openProduct(p) },
       h('img', { src: p.image || 'assets/img/logo.png', alt: p.name, loading: 'lazy' }),
       p.featured ? h('span', { class: 'pcard__badge', text: 'Popular' }) : null),
     h('div', { class: 'pcard__body' },
       h('span', { class: 'pcard__cat', text: p.category }),
-      h('h3', { text: p.name }),
+      h('h3', {}, h('button', { type: 'button', class: 'pcard__name', text: p.name, onclick: () => openProduct(p) })),
       h('p', { text: p.description || '' }),
       add));
 }
@@ -223,18 +204,15 @@ function renderCatalog(reset = true) {
   const list = filteredProducts();
   if (reset) { grid.replaceChildren(); catalog.shown = 0; }
   const next = list.slice(catalog.shown, catalog.shown + catalog.page);
-  next.forEach((p, i) => { const card = productCard(p); card.style.animationDelay = `${i * 40}ms`; grid.append(card); });
+  grid.append(...next.map(productCard));
   catalog.shown += next.length;
-  if (!list.length) grid.append(h('p', { class: 'catalog__empty', text: 'No products match your search. Try another word, or send us an enquiry — we fabricate to order.' }));
+  if (!list.length) grid.append(h('p', { class: 'catalog__empty', text: 'No products match your search. Try another word, or send us an enquiry: we fabricate to order.' }));
   $('#catalog-more').hidden = catalog.shown >= list.length;
   $('#catalog-count').textContent = list.length ? `Showing ${catalog.shown} of ${list.length} products` : '';
-  bindTilt(grid);
-  ScrollTrigger.refresh();
 }
 
 function renderTabs() {
-  const tabs = $('#catalog-tabs');
-  tabs.replaceChildren(...['All', ...categories].map((c) => h('button', {
+  $('#catalog-tabs').replaceChildren(...['All', ...categories].map((c) => h('button', {
     class: `tab${catalog.cat === c ? ' is-active' : ''}`, type: 'button', role: 'tab', 'aria-selected': String(catalog.cat === c),
     onclick: () => { catalog.cat = c; renderTabs(); renderCatalog(); },
   }, c, h('em', { text: String(c === 'All' ? products.length : products.filter((p) => p.category === c).length) }))));
@@ -256,428 +234,85 @@ $('#footer-cats').append(...categories.map((c) => h('li', {}, h('a', { href: '#p
 const modal = $('#product-modal');
 function syncModalButton() {
   const added = basket.has(currentProduct.name);
-  $('#pm-add').replaceChildren(h('span', { text: added ? 'Added to enquiry' : 'Add to enquiry' }), icon(added ? 'check' : 'plus'));
+  $('#pm-add').replaceChildren(icon(added ? 'check' : 'plus'), added ? 'Added to enquiry' : 'Add to enquiry');
 }
 function openProduct(p) {
   currentProduct = p;
-  $('#pm-img').src = p.image; $('#pm-img').alt = p.name;
+  $('#pm-img').src = p.image || 'assets/img/logo.png'; $('#pm-img').alt = p.name;
   $('#pm-cat').textContent = p.category;
   $('#pm-name').textContent = p.name;
   $('#pm-desc').textContent = p.description || '';
   syncModalButton();
-  modal.hidden = false;
-  lenis?.stop();
-  $('.modal__close', modal).focus();
+  openOverlay(modal, $('.modal__close', modal));
 }
-function closeModal() { modal.hidden = true; currentProduct = null; lenis?.start(); }
+function closeModal() { currentProduct = null; closeOverlay(modal); }
 modal.addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeModal(); });
 $('#pm-add').addEventListener('click', () => { basket.toggle(currentProduct.name); });
 $('#pm-quote').addEventListener('click', () => { basket.add(currentProduct.name); closeModal(); scrollToTarget('#enquiry'); });
 
-// ------------------------------------------------------------------ gallery + lightbox
+// ------------------------------------------------------------------ project gallery + lightbox
 const gallery = data.gallery || [];
 const gCats = ['All', ...new Set(gallery.map((g) => g.category).filter(Boolean))];
+let gCat = 'All';
 let lbIndex = 0;
 let lbList = gallery;
-$('#gallery').append(...gallery.map((g, i) => h('button', {
-  class: `gitem${i % 3 === 0 ? ' gitem--tall' : ''}`, type: 'button', 'data-cat': g.category || '', 'data-reveal': true,
-  onclick: () => { lbList = gallery.filter((x) => !$('#gallery').dataset.cat || $('#gallery').dataset.cat === 'All' || x.category === $('#gallery').dataset.cat); openLightbox(lbList.indexOf(g)); },
-}, h('img', { src: g.image, alt: g.title, loading: 'lazy' }), h('span', { class: 'gitem__cap' }, h('small', { text: g.category || 'Project' }), h('strong', { text: g.title })))));
-$('#gallery-filters').append(...gCats.map((c, i) => h('button', { class: `gchip${i === 0 ? ' is-active' : ''}`, type: 'button', onclick: (e) => {
-  $$('.gchip').forEach((b) => b.classList.toggle('is-active', b === e.currentTarget));
-  $('#gallery').dataset.cat = c;
-  $$('.gitem').forEach((it) => it.classList.toggle('is-hidden', c !== 'All' && it.dataset.cat !== c));
-  ScrollTrigger.refresh();
-} }, c)));
+
+$('#gallery').append(...gallery.map((g) => h('button', {
+  class: 'gitem', type: 'button', 'data-cat': g.category || '',
+  onclick: () => { lbList = gallery.filter((x) => gCat === 'All' || x.category === gCat); openLightbox(lbList.indexOf(g)); },
+}, h('span', { class: 'gitem__img' }, h('img', { src: g.image, alt: g.title, loading: 'lazy' })),
+  h('span', { class: 'gitem__cap' }, h('strong', { text: g.title }), h('small', { text: g.category || 'Project' })))));
+
+if (gCats.length > 2) {
+  $('#gallery-filters').append(...gCats.map((c) => h('button', {
+    class: `chip${c === gCat ? ' is-active' : ''}`, type: 'button', 'aria-pressed': String(c === gCat),
+    onclick: (e) => {
+      gCat = c;
+      $$('#gallery-filters .chip').forEach((b) => { const on = b === e.currentTarget; b.classList.toggle('is-active', on); b.setAttribute('aria-pressed', String(on)); });
+      $$('.gitem').forEach((it) => { it.hidden = c !== 'All' && it.dataset.cat !== c; });
+    },
+  }, c)));
+}
 
 const lightbox = $('#lightbox');
-function openLightbox(i) {
+function showLightboxImage(i) {
   lbIndex = (i + lbList.length) % lbList.length;
   const g = lbList[lbIndex];
   $('#lb-img').src = g.image; $('#lb-img').alt = g.title;
   $('#lb-title').textContent = g.title;
   $('#lb-caption').textContent = g.caption || '';
-  lightbox.hidden = false;
-  lenis?.stop();
 }
-function closeLightbox() { lightbox.hidden = true; lenis?.start(); }
-lightbox.addEventListener('click', (e) => { if (e.target === lightbox || e.target.closest('[data-close]')) closeLightbox(); });
-$('#lb-prev').addEventListener('click', () => openLightbox(lbIndex - 1));
-$('#lb-next').addEventListener('click', () => openLightbox(lbIndex + 1));
-document.addEventListener('keydown', (e) => {
-  if (!lightbox.hidden) {
-    if (e.key === 'Escape') closeLightbox();
-    if (e.key === 'ArrowLeft') openLightbox(lbIndex - 1);
-    if (e.key === 'ArrowRight') openLightbox(lbIndex + 1);
-  } else if (!modal.hidden && e.key === 'Escape') closeModal();
-  else if (e.key === 'Escape' && !$('#mobile-menu').hidden) toggleMenu(false);
-});
+function openLightbox(i) {
+  showLightboxImage(i);
+  if (lightbox.hidden) openOverlay(lightbox, $('.lightbox__close', lightbox));
+}
+lightbox.addEventListener('click', (e) => { if (e.target === lightbox || e.target.closest('[data-close]')) closeOverlay(lightbox); });
+$('#lb-prev').addEventListener('click', () => showLightboxImage(lbIndex - 1));
+$('#lb-next').addEventListener('click', () => showLightboxImage(lbIndex + 1));
 
-// ------------------------------------------------------------------ smooth scroll
-let lenis = null;
-if (!reducedMotion) {
-  lenis = new Lenis({ lerp: 0.09, smoothWheel: true, wheelMultiplier: 0.95 });
-  lenis.on('scroll', ScrollTrigger.update);
-  gsap.ticker.add((t) => lenis.raf(t * 1000));
-  gsap.ticker.lagSmoothing(0);
-  lenis.stop();
-}
-function scrollToTarget(sel) {
-  const el = typeof sel === 'string' ? $(sel) : sel;
-  if (!el) return;
-  const offset = el.id === 'top' ? 0 : -70;
-  if (lenis) lenis.scrollTo(el.id === 'top' ? 0 : el, { offset, duration: 1.5 });
-  else window.scrollTo({ top: el.id === 'top' ? 0 : el.getBoundingClientRect().top + window.scrollY + offset, behavior: reducedMotion ? 'auto' : 'smooth' });
-}
-document.addEventListener('click', (e) => {
-  const a = e.target.closest('a[data-scroll]');
-  if (!a) return;
-  const hash = a.getAttribute('href');
-  if (!hash?.startsWith('#')) return;
-  e.preventDefault();
-  toggleMenu(false);
-  scrollToTarget(hash);
-});
-
-// ------------------------------------------------------------------ nav
-const nav = $('#nav');
+// ------------------------------------------------------------------ mobile menu
 const burger = $('#burger');
+const menu = $('#mobile-menu');
 function toggleMenu(open = burger.getAttribute('aria-expanded') !== 'true') {
   burger.setAttribute('aria-expanded', String(open));
   burger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-  $('#mobile-menu').hidden = !open;
-  if (open) { lenis?.stop(); nav.classList.remove('is-hidden'); } else lenis?.start();
+  menu.hidden = !open;
 }
 burger.addEventListener('click', () => toggleMenu());
+menu.addEventListener('click', (e) => { if (e.target.closest('a')) toggleMenu(false); });
+window.matchMedia('(min-width: 1101px)').addEventListener('change', (e) => { if (e.matches) toggleMenu(false); });
 
-let lastY = 0;
-function onScroll() {
-  const y = window.scrollY;
-  nav.classList.toggle('is-scrolled', y > 30);
-  const menuOpen = burger.getAttribute('aria-expanded') === 'true';
-  if (!menuOpen) nav.classList.toggle('is-hidden', y > 700 && y > lastY + 4);
-  if (y < lastY - 4) nav.classList.remove('is-hidden');
-  lastY = y;
-  const max = document.documentElement.scrollHeight - window.innerHeight;
-  $('.scroll-progress span').style.transform = `scaleX(${max > 0 ? y / max : 0})`;
-  updateStage();
-}
-window.addEventListener('scroll', onScroll, { passive: true });
-
-$$('.nav__links a').forEach((a) => {
-  const target = $(a.getAttribute('href'));
-  if (!target) return;
-  ScrollTrigger.create({
-    trigger: target, start: 'top 45%', end: 'bottom 45%',
-    onToggle: (self) => { if (self.isActive) $$('.nav__links a').forEach((x) => x.classList.toggle('is-active', x === a)); },
-  });
+document.addEventListener('keydown', (e) => {
+  if (!lightbox.hidden) {
+    if (e.key === 'Escape') closeOverlay(lightbox);
+    if (e.key === 'ArrowLeft') showLightboxImage(lbIndex - 1);
+    if (e.key === 'ArrowRight') showLightboxImage(lbIndex + 1);
+  } else if (!modal.hidden && e.key === 'Escape') closeModal();
+  else if (e.key === 'Escape' && !menu.hidden) { toggleMenu(false); burger.focus(); }
 });
-
-// ------------------------------------------------------------------ text effects
-function splitWords(el) {
-  const out = [];
-  const nodes = [...el.childNodes];
-  el.textContent = '';
-  nodes.forEach((node) => {
-    const accent = node.nodeType === 1 && node.classList.contains('accent');
-    const words = node.textContent.split(/(\s+)/);
-    words.forEach((w) => {
-      if (!w) return;
-      if (/^\s+$/.test(w)) { el.append(' '); return; }
-      const inner = h('span', { class: `split-word${accent ? ' accent' : ''}`, text: w });
-      el.append(h('span', { class: 'split-line' }, inner));
-      out.push(inner);
-    });
-  });
-  return out;
-}
-
-const heroWords = splitWords($('.hero__title'));
-$$('[data-split]:not(.hero__title)').forEach((el) => {
-  const words = splitWords(el);
-  if (reducedMotion) return;
-  gsap.from(words, { yPercent: 115, rotate: 4, duration: 1.2, ease: 'expo.out', stagger: 0.035, scrollTrigger: { trigger: el, start: 'top 88%' } });
-});
-
-$$('[data-scrub-words]').forEach((el) => {
-  const words = el.textContent.split(/\s+/).filter(Boolean);
-  el.replaceChildren(...words.flatMap((w, i) => [h('span', { class: 'w', text: w }), i < words.length - 1 ? ' ' : null].filter(Boolean)));
-  if (reducedMotion) { $$('.w', el).forEach((w) => { w.style.opacity = 1; }); return; }
-  gsap.to($$('.w', el), { opacity: 1, stagger: 0.1, ease: 'none', scrollTrigger: { trigger: el, start: 'top 82%', end: 'bottom 50%', scrub: true } });
-});
-
-// ------------------------------------------------------------------ scroll animations
-function setupScrollAnimations() {
-  if (reducedMotion) return;
-  ScrollTrigger.batch('[data-reveal]', {
-    start: 'top 90%',
-    once: true,
-    onEnter: (els) => gsap.to(els, { opacity: 1, y: 0, duration: 1.1, ease: 'expo.out', stagger: 0.08, overwrite: true }),
-  });
-
-  $$('[data-parallax]').forEach((el) => {
-    gsap.to(el, { y: Number(el.dataset.parallax), ease: 'none', scrollTrigger: { trigger: el.closest('section'), start: 'top bottom', end: 'bottom top', scrub: true } });
-  });
-  $$('[data-parallax-img]').forEach((img) => {
-    gsap.fromTo(img, { yPercent: -8 }, { yPercent: 8, ease: 'none', scrollTrigger: { trigger: img.parentElement, start: 'top bottom', end: 'bottom top', scrub: true } });
-  });
-
-  $$('.exp-item').forEach((it) => {
-    gsap.to($('.exp-item__bar', it), { scaleX: 1, duration: 1.4, ease: 'expo.out', scrollTrigger: { trigger: it, start: 'top 80%' } });
-  });
-
-  const pSteps = $$('.pstep');
-  const fill = $('#process-fill');
-  ScrollTrigger.create({
-    trigger: '.process__track', start: 'top 75%', end: 'bottom 55%', scrub: true,
-    onUpdate: (self) => {
-      fill.style.setProperty('--p', self.progress.toFixed(4));
-      pSteps.forEach((s, i) => s.classList.toggle('is-on', self.progress >= i / Math.max(1, pSteps.length - 1) - 0.02));
-    },
-  });
-
-  gsap.fromTo('.marquee', { xPercent: 0 }, { xPercent: -6, ease: 'none', scrollTrigger: { trigger: '.marquee', start: 'top bottom', end: 'bottom top', scrub: true } });
-}
-
-function layoutProcessLine() {
-  const line = $('.process__line');
-  const dots = $$('.pstep__dot');
-  if (!line || dots.length < 2) return;
-  if (window.innerWidth > 960) { line.style.top = ''; line.style.height = ''; return; }
-  const track = $('.process__track').getBoundingClientRect();
-  const first = dots[0].getBoundingClientRect(), last = dots[dots.length - 1].getBoundingClientRect();
-  line.style.top = `${first.top + first.height / 2 - track.top}px`;
-  line.style.height = `${last.top - first.top}px`;
-}
-
-function countUp() {
-  $$('[data-count]').forEach((el) => {
-    const end = Number(el.dataset.count);
-    if (reducedMotion) { el.textContent = end; return; }
-    const o = { v: 0 };
-    gsap.to(o, { v: end, duration: 2, ease: 'power3.out', delay: 0.4, onUpdate: () => { el.textContent = Math.round(o.v); } });
-  });
-}
-
-// ------------------------------------------------------------------ tilt + cursor
-function bindTilt(scope = document) {
-  if (!finePointer || reducedMotion) return;
-  $$('[data-tilt], .svc, [data-tilt-soft]', scope).forEach((el) => {
-    if (el.dataset.tiltBound) return;
-    el.dataset.tiltBound = '1';
-    const max = el.hasAttribute('data-tilt-soft') ? 4 : 7;
-    el.addEventListener('pointermove', (e) => {
-      const r = el.getBoundingClientRect();
-      const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
-      el.style.setProperty('--mx', `${px * 100}%`);
-      el.style.setProperty('--my', `${py * 100}%`);
-      el.style.transform = `perspective(900px) rotateX(${(0.5 - py) * max}deg) rotateY(${(px - 0.5) * max}deg) translateY(-4px)`;
-    });
-    el.addEventListener('pointerleave', () => { el.style.transform = ''; });
-  });
-}
-bindTilt();
-
-if (finePointer && !reducedMotion) {
-  root.classList.add('has-cursor');
-  const cursor = $('.cursor');
-  const dot = $('.cursor__dot'), ring = $('.cursor__ring');
-  const p = { x: -100, y: -100, rx: -100, ry: -100 };
-  window.addEventListener('pointermove', (e) => {
-    p.x = e.clientX; p.y = e.clientY;
-    const t = e.target;
-    cursor.classList.toggle('is-hover', !!t.closest?.('a, button, input, select, textarea, label, [data-tilt], .pcard'));
-    cursor.classList.toggle('is-light', !!t.closest?.('.section--light, .modal__card'));
-  }, { passive: true });
-  gsap.ticker.add(() => {
-    p.rx += (p.x - p.rx) * 0.18; p.ry += (p.y - p.ry) * 0.18;
-    dot.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -50%)`;
-    ring.style.transform = `translate(${p.rx}px, ${p.ry}px) translate(-50%, -50%)`;
-  });
-}
-
-// ------------------------------------------------------------------ 3D scene + scroll choreography
-let scene = null;
-let stageAnchors = [];
-const stepCards = $$('.step-card');
-const progressBars = $$('#showcase-progress i');
-const hotspot = $('#hotspot');
-const line = $('#showcase-line');
-const HOTSPOT_ANCHORS = ['nameplate', 'seam', 'fitting', 'motor'];
-let activeStep = 0;
-
-function computeAnchors() {
-  const top = (el) => el.getBoundingClientRect().top + window.scrollY;
-  const vh = window.innerHeight;
-  const hero = $('#top'), show = $('#showcase'), svc = $('#services'), enq = $('#enquiry');
-  const sTop = top(show);
-  const L = Math.max(1, show.offsetHeight - vh);
-  stageAnchors = [
-    [0, 0],
-    [hero.offsetHeight * 0.55, 0],
-    [sTop - vh * 0.05, 1],
-    [sTop + L * 0.33, 2],
-    [sTop + L * 0.66, 3],
-    [sTop + L * 0.97, 4],
-    [top(svc) + svc.offsetHeight / 2 - vh / 2, 5],
-    [top(enq) + Math.max(0, (enq.offsetHeight - vh) / 2), 6],
-  ];
-}
-
-const ease = (t) => { const x = Math.min(1, Math.max(0, (t - 0.1) / 0.8)); return x * x * (3 - 2 * x); };
-function stageAt(y) {
-  const A = stageAnchors;
-  if (!A.length) return 0;
-  if (y <= A[0][0]) return A[0][1];
-  for (let i = 0; i < A.length - 1; i++) {
-    const [y0, k0] = A[i], [y1, k1] = A[i + 1];
-    if (y <= y1) return k0 + (k1 - k0) * ease((y - y0) / Math.max(1, y1 - y0));
-  }
-  return A[A.length - 1][1];
-}
-
-function updateStage() {
-  if (!stageAnchors.length) return;
-  const s = stageAt(window.scrollY);
-  scene?.setStage(s);
-  // showcase step cards
-  const idx = Math.max(0, Math.min(stepCards.length - 1, Math.round(s - 1)));
-  if (idx !== activeStep) {
-    stepCards[activeStep]?.classList.remove('is-active');
-    stepCards[idx]?.classList.add('is-active');
-    activeStep = idx;
-  }
-  progressBars.forEach((b, i) => { b.style.setProperty('--p', Math.max(0, Math.min(1, s - i))); });
-}
-
-function trackHotspot() {
-  if (!scene) return;
-  const show = $('#showcase');
-  const r = show.getBoundingClientRect();
-  const pinned = r.top <= 1 && r.bottom >= window.innerHeight - 1;
-  const settled = Math.abs(scene.stage - (activeStep + 1)) < 0.2;
-  const pt = pinned && settled ? scene.project(HOTSPOT_ANCHORS[activeStep] || 'motor') : null;
-  if (!pt || !pt.visible) { hotspot.classList.add('is-hidden'); line.classList.add('is-hidden'); return; }
-  hotspot.classList.remove('is-hidden');
-  line.classList.remove('is-hidden');
-  hotspot.style.transform = `translate(${pt.x}px, ${pt.y}px)`;
-  const card = stepCards[activeStep].getBoundingClientRect();
-  const mobile = window.innerWidth <= 960;
-  const x1 = mobile ? card.left + card.width / 2 : card.right;
-  const y1 = mobile ? card.top : card.top + card.height / 2;
-  const [ln, dot] = [$('line', line), $('circle', line)];
-  ln.setAttribute('x1', x1); ln.setAttribute('y1', y1); ln.setAttribute('x2', pt.x); ln.setAttribute('y2', pt.y);
-  dot.setAttribute('cx', x1); dot.setAttribute('cy', y1);
-}
-
-async function initScene() {
-  const canvas = $('#scene');
-  try {
-    const test = document.createElement('canvas');
-    if (!(test.getContext('webgl2') || test.getContext('webgl'))) throw new Error('WebGL unavailable');
-    const { createScene } = await import('./scene.js');
-    scene = createScene(canvas, { mobile: isMobile, reducedMotion });
-    // Render only while a transparent "3D" section is on screen.
-    const visible = new Set();
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((en) => (en.isIntersecting ? visible.add(en.target) : visible.delete(en.target)));
-      scene.setActive(visible.size > 0);
-    }, { rootMargin: '10% 0px' });
-    $$('[data-3d]').forEach((s) => io.observe(s));
-    scene.onFrame(trackHotspot);
-    const phoneLayout = window.matchMedia('(max-width: 960px)');
-    const boxEls = Object.fromEntries(['hero', 'showcase', 'services', 'enquiry'].map((k) => [k, document.getElementById(`${k}-stage`)]));
-    const heroContent = $('.hero__content'), heroStats = $('#hero-stats'), showHead = $('.showcase__head .h2'), deskStage = $('.enquiry__stage');
-    const region = (left, top, right, bottom) => ({ left, top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) });
-    scene.setBoxProvider(() => {
-      if (phoneLayout.matches) {
-        return { phone: true, ...Object.fromEntries(Object.entries(boxEls).map(([k, el]) => [k, el.getBoundingClientRect()])) };
-      }
-      // Laptops: the space to the right of the text column (kept where it is at the top of the page).
-      const vw = document.documentElement.clientWidth, vh = window.innerHeight;
-      const top = 84;
-      const statsTop = heroStats.getBoundingClientRect().top + window.scrollY;
-      const card = stepCards[activeStep].getBoundingClientRect();
-      return {
-        phone: false,
-        hero: region(heroContent.getBoundingClientRect().right + 24, top, vw - 16, Math.min(vh - 12, statsTop - 14)),
-        showcase: region(Math.max(card.right, showHead.getBoundingClientRect().right) + 24, top, vw - 56, vh - 12),
-        enquiry: deskStage.getBoundingClientRect(),
-      };
-    });
-    computeAnchors();
-    scene.jumpTo(stageAt(window.scrollY));
-    await Promise.race([scene.ready, new Promise((r) => setTimeout(r, 4000))]);
-  } catch (err) {
-    console.warn('3D scene disabled:', err);
-    root.classList.add('no-webgl');
-    scene = null;
-  }
-}
 
 // ------------------------------------------------------------------ enquiry form
-if (demo) $('.footer__admin').textContent = 'Admin (preview)';
+initEnquiry({ data, demo, basket, toast, scrollTo: scrollToTarget });
 
-initEnquiry({
-  data,
-  demo,
-  basket,
-  toast,
-  scrollTo: scrollToTarget,
-  onSent: () => scene?.pulse(),
-});
-
-// ------------------------------------------------------------------ preloader → intro
-const loaderPct = $('#loader-pct'), loaderBar = $('#loader-bar');
-const progress = { v: 0 };
-const loaderTween = gsap.to(progress, { v: 88, duration: 2.4, ease: 'power2.out', onUpdate: () => {
-  loaderPct.textContent = Math.round(progress.v);
-  loaderBar.style.width = `${progress.v}%`;
-} });
-
-async function boot() {
-  try {
-    await Promise.all([
-      initScene(),
-      document.fonts?.ready.catch(() => {}),
-      new Promise((r) => setTimeout(r, reducedMotion ? 0 : 900)),
-    ]);
-  } finally {
-    loaderTween.kill();
-    await new Promise((r) => gsap.to(progress, { v: 100, duration: 0.35, onUpdate: () => {
-      loaderPct.textContent = Math.round(progress.v);
-      loaderBar.style.width = `${progress.v}%`;
-    }, onComplete: r }));
-    $('#loader').classList.add('is-done');
-    root.classList.remove('is-loading');
-    lenis?.start();
-    intro();
-    ScrollTrigger.addEventListener('refresh', () => { computeAnchors(); updateStage(); layoutProcessLine(); });
-    ScrollTrigger.refresh();
-    computeAnchors();
-    onScroll();
-    new ResizeObserver(() => ScrollTrigger.refresh()).observe(document.body);
-    if (location.hash && $(location.hash)) setTimeout(() => scrollToTarget(location.hash), 300);
-  }
-}
-
-function intro() {
-  const heroReveals = $$('.hero [data-reveal]');
-  if (reducedMotion) {
-    gsap.set([...heroReveals, '.hero__stats li'], { opacity: 1, y: 0 });
-    countUp();
-    setupScrollAnimations();
-    return;
-  }
-  const tl = gsap.timeline({ defaults: { ease: 'expo.out' } });
-  tl.from('.nav', { y: -30, opacity: 0, duration: 1 }, 0)
-    .from('.hero__eyebrow', { y: 20, opacity: 0, duration: 1 }, 0.1)
-    .from(heroWords, { yPercent: 115, rotate: 5, duration: 1.4, stagger: 0.05 }, 0.15)
-    .to(heroReveals, { opacity: 1, y: 0, duration: 1.2, stagger: 0.12 }, 0.5)
-    .from('.hero__stats li', { y: 30, opacity: 0, duration: 1.1, stagger: 0.08 }, 0.7)
-    .from('.scroll-cue', { opacity: 0, duration: 1 }, 1.1);
-  countUp();
-  setupScrollAnimations();
-}
-
-boot();
+// Content is rendered by script, so re-apply a #section link from the address bar once it exists.
+if (location.hash.length > 1) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
